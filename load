@@ -222,6 +222,14 @@ end
 function OnDraw(d)
     removeHook("ondraw")
     runCoroutine(function()
+        LogToConsole("Loaded AutoPull x AutoSpawn!")
+        var = {}
+        var.v1 = "OnAddNotification"
+        var.v2 = "interface/large/adventure.rttex"
+
+        var.v3 = "This script is free if you buy it you are stupid!"
+        var.v4 = "audio/gong.wav"
+        sendVariant(var)
         addCategory("AutoPull x Helper", "Home")
         addIntoModule(ui:generateJSON(), "AutoPull x Helper")
         RefreshLiveOutput()
