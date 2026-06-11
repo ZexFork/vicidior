@@ -185,6 +185,7 @@ function OnVariant(var)
      local emote = tostring(var.v2 or "")
      if validEmotes[emote] and not emoteCooldown then
      emoteCooldown = true
+     sendNotification("Emote detected :".. emote)
      sendPacket(2, "action|input\n|text|" .. emote)
      runThread(function()
         sleep(3000)
@@ -222,6 +223,7 @@ end
 function OnDraw(d)
     removeHook("ondraw")
     runCoroutine(function()
+        sendNotification("Autopull x AutoSpawn Ready!")
         LogToConsole("Loaded AutoPull x AutoSpawn!")
         var = {}
         var.v1 = "OnAddNotification"
