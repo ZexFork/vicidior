@@ -1,0 +1,233 @@
+-- ===================================================
+-- LIVE DASHBOARD (Integrated Module)
+-- Version: 5-Second Delayed Load
+-- ===================================================
+
+local pref = require("preferences")
+local json = require("json")
+local saved = pref:new("rizzdb.json")
+
+-- =========================
+-- DATABASE & STATE
+-- =========================
+local db = saved:get("world_data", {izin = {}, hit = {}, done = {}})
+local ap_enabled = saved:get("ap_enabled", false)
+local target_item = saved:get("target_item", "Dirt")
+local current_input = "" 
+local mirror_emote = saved:get("mirror_emote", false)
+local emoteCooldown = false
+
+local queue = {}
+local takenTargets = {}
+local pulledPlayers = {}
+local pulledSet = {}
+local MAX_HISTORY = 1000
+
+local function add_pulled(name)
+    if name == "" then return false end
+    if pulledSet[name] then return false end
+
+    table.insert(pulledPlayers, name)
+    pulledSet[name] = true
+
+    if #pulledPlayers > MAX_HISTORY then
+        local old = table.remove(pulledPlayers, 1)
+        if old then pulledSet[old] = nil end
+    end
+
+    return true
+end
+
+
+-- =========================
+-- LIVE REFRESH LOGIC
+-- =========================
+function RefreshLiveOutput()
+    local output = {}
+    
+    table.insert(output, {"--- [ SAVED WORLDS ] ---", ""})
+    local categories = {{k="izin", t="IZIN", c="`2"}, {k="hit", t="HIT", c="`9"}, {k="done", t="DONE", c="`b"}}
+    for _, cat in ipairs(categories) do
+        if #db[cat.k] > 0 then
+            for _, w in ipairs(db[cat.k]) do
+                table.insert(output, {cat.c .. w, "Category: " .. cat.t})
+            end
+        end
+    end
+
+    table.insert(output, {"--- [ PULL HISTORY ] ---", ""})
+    if #pulledPlayers == 0 then
+        table.insert(output, {"No players pulled yet", ""})
+    else
+        for i = #pulledPlayers, 1, -1 do 
+            table.insert(output, {pulledPlayers[i], "Status: Pulled"})
+        end
+    end
+
+    editValue("live_display_list", json:encode(output))
+end
+
+local function SaveData()
+    saved:set("world_data", db)
+    saved:set("ap_enabled", ap_enabled)
+    saved:set("mirror_emote", mirror_emote)
+    saved:set("target_item", target_item)
+    saved:save()
+    RefreshLiveOutput()
+end
+
+-- =========================
+-- CORE LOGIC
+-- =========================
+local function AddWorld(cat)
+    if current_input == "" then return end
+    local clean = current_input:upper():gsub("%s+", "")
+    
+    for _, c in ipairs({"izin", "hit", "done"}) do
+        for i, v in ipairs(db[c]) do
+            if v:gsub(" %(%d+%)", "") == clean then
+                table.remove(db[c], i)
+                break
+            end
+        end
+    end
+
+    if cat == "done" then
+        local found = false
+        for i, v in ipairs(db.done) do
+            if v:gsub(" %(%d+%)", "") == clean then
+                local count = v:match("%((%d+)%)")
+                count = count and tonumber(count) + 1 or 2
+                db.done[i] = clean .. " (" .. count .. ")"
+                found = true break
+            end
+        end
+        if not found then table.insert(db.done, #db.done+1, clean) end
+    else
+        table.insert(db[cat], #db[cat]+1, clean)
+    end
+    
+    SaveData()
+end
+
+-- =========================
+-- UI FRAMEWORK
+-- =========================
+local ui = UserInterface.new("AutoPull", "Dashboard")
+ui:addLabelApp("AutoPull by rizzterine", "Verified")
+
+ui:addDivider()
+
+ui:addToggle("AutoPull Switch", ap_enabled, "toggle_ap", false)
+ui:addItemPicker("Target Item", target_item, "1", "item_picker")
+ui:addToggle("Mirror Emote", mirror_emote, "toggle_mirror", false)
+
+-- =========================
+-- EVENT HANDLER
+-- =========================
+function OnValue(type, name, value)
+    if name == "input_world_name" then
+        current_input = value
+    elseif name == "toggle_mirror" then 
+    mirror_emote = value
+    SaveData()
+    elseif name == "btn_izin" then AddWorld("izin")
+    elseif name == "btn_hit" then AddWorld("hit")
+    elseif name == "btn_done" then AddWorld("done")
+    elseif name == "toggle_ap" then
+        ap_enabled = value
+        SaveData()
+    elseif name == "item_picker" then
+        target_item = value
+        SaveData()
+    elseif name == "btn_reset_all" then
+        db = {izin={}, hit={}, done={}}
+        pulledPlayers, pulledSet, queue = {}, {}, {}
+        SaveData()
+    end
+end
+
+-- =========================
+-- BACKGROUND PROCESS
+-- =========================
+runThread(function()
+    while true do
+        if ap_enabled and #queue > 0 then
+            local t = table.remove(queue, 1)
+            if t and not takenTargets[t] then
+                CSleep(math.random(400, 800))
+                sendPacket(2, "action|input\n|text|/pull " .. t)
+                local d = (#t <= 4 and math.random(1000, 2000)) or math.random(2000, 2500)
+                CSleep(d)
+            end
+        end
+        CSleep(200)
+    end
+end)
+
+local validEmotes = {
+["/no"] = true,
+["/yes"] = true,
+["/love"] = true,
+["/furious"] = true,
+["/idk"] = true,
+["/sleep"] = true,
+["/rolleyes"] = true,
+["/fp"] = true,
+["/wave"] = true,
+["/omg"] = true,
+["/dance"] = true,
+["/fold"] = true
+}
+
+function OnVariant(var)
+     if mirror_emote and var.v1 == "OnAction" then
+     local emote = tostring(var.v2 or "")
+     if validEmotes[emote] and not emoteCooldown then
+     emoteCooldown = true
+     sendPacket(2, "action|input\n|text|" .. emote)
+     runThread(function()
+        sleep(3000)
+        emoteCooldown = false
+    end)
+end
+
+end
+    if var.v1 == "OnConsoleMessage" then
+        if var.v2:find("pulls") then
+            local _, t = var.v2:match("(.+)%s+pulls%s+(.+)!")
+            if t then takenTargets[t:gsub("`.", ""):upper()] = true end
+        end
+        if ap_enabled and var.v2:find("bought") and var.v2:find(target_item) then
+            local name = var.v2:match("(.+)%s+bought")
+            if name then
+         -- local n = name:gsub("`.", ""):gsub("%b[]", ""):upper()
+            name = name:gsub("`.", "")
+            name = name:gsub("%b[]", "")
+            name = name:gsub("[^%w_]", " ")
+            name = name:match("([%w_]+)$") or name
+            
+                if add_pulled(name) then
+                table.insert(queue, name)
+                --LogToConsole("`2Queued: `9" .. name .. " (`7" .. #queue .. "`2)")
+            end
+            end
+        end
+    end
+end
+
+-- ==========================================
+-- CORE
+-- ==========================================
+function OnDraw(d)
+    removeHook("ondraw")
+    runCoroutine(function()
+        addCategory("AutoPull x Helper", "Home")
+        addIntoModule(ui:generateJSON(), "AutoPull x Helper")
+        RefreshLiveOutput()
+        growtopia.notify("`2 AutoPull x Helper Dashboard Loaded!")
+    end)
+end
+
+addHook(OnVariant, "onVariant")
+applyHook()
