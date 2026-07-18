@@ -18,16 +18,15 @@ local toolIds = {
 
 sendDialog({
     title = "Script Autosurg V1.2",
-    message = "     [ SYSTEM STATUS: ACTIVE ]\n\nModifications:\n- Anti-Antibiotic under 100°F active.\n- Strict step tracker.",
+    message = "     [ SYSTEM STATUS: ACTIVE ]\n\nChange Logs:\n- Anti-Antibiotic under 100 active.\n- Strict step tracker.",
     confirm = "START AUTO SURG",
     alias = "OK"
 })
 
-LogToConsole("Auto Surg V1.2 (Fixed Temp Logic) Active!")
 growtopia.notify("AUTO SURG V1.2 ACTIVE")
 
 function smartDelay()
-    local ms = math.random(210, 420)
+    local ms = math.random(250, 500)
     Sleep(ms)
 end
 
@@ -36,7 +35,7 @@ function useTool(toolName)
     if itool then
         smartDelay()
         SendPacket(2, "action|dialog_return\ndialog_name|surgery\nbuttonClicked|tool" .. itool)
-        LogToConsole("[AutoSurg] Menggunakan: " .. toolName)
+        LogToConsole("[`3Used-Tools`w] `2" .. toolName)
     end
 end
 
