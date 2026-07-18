@@ -1,0 +1,196 @@
+--Auto Surg V1.2 (Strict Temp Check & Fully Automated by GT Lua)
+
+local toolIds = {
+    ["Sponge"]       = 1258,
+    ["Splint"]       = 1268,
+    ["Antibiotic"]   = 1266,
+    ["Anesthetic"]   = 1262,
+    ["Scalpel"]      = 1260,
+    ["Stitches"]     = 1270,
+    ["Lab kit"]      = 4318,
+    ["Pins"]         = 4308,
+    ["Clamp"]        = 4314,
+    ["Transfusion"]  = 4310,
+    ["Ultrasound"]   = 4316,
+    ["Defibrillator"] = 4312,
+    ["Fix it"]       = 1296
+}
+
+sendDialog({
+    title = "Script Autosurg V1.2",
+    message = "     [ SYSTEM STATUS: ACTIVE ]\n\nModifications:\n- Anti-Antibiotic under 100°F active.\n- Strict step tracker.",
+    confirm = "START AUTO SURG",
+    alias = "OK"
+})
+
+LogToConsole("Auto Surg V1.2 (Fixed Temp Logic) Active!")
+growtopia.notify("AUTO SURG V1.2 ACTIVE")
+
+function smartDelay()
+    local ms = math.random(210, 420)
+    Sleep(ms)
+end
+
+function useTool(toolName)
+    local itool = toolIds[toolName]
+    if itool then
+        smartDelay()
+        SendPacket(2, "action|dialog_return\ndialog_name|surgery\nbuttonClicked|tool" .. itool)
+        LogToConsole("[AutoSurg] Menggunakan: " .. toolName)
+    end
+end
+
+function surg(var)
+    -- Memastikan packet adalah Dialog Surgery
+    if var.v1 ~= "OnDialogRequest" or not var.v2:find("end_dialog|surgery") then
+        return false
+    end
+
+    local dialog = var.v2
+
+    -- ====================================================================
+    -- DETEKSI SKILL FAIL (Mengulang Alat yang Sama)
+    -- ====================================================================
+    if dialog:find("wrong medication") then useTool("Antibiotic") return true
+    elseif dialog:find("contaminated the sample") then useTool("Lab kit") return true
+    elseif dialog:find("spilled blood everywhere") then useTool("Transfusion") return true
+    elseif dialog:find("inhaled all the anesthetic") then useTool("Anesthetic") return true
+    elseif dialog:find("ate the sponge") then useTool("Sponge") return true
+    elseif dialog:find("tied yourself up in stitches") then useTool("Stitches") return true
+    elseif dialog:find("scanned the nurse") then useTool("Ultrasound") return true
+    elseif dialog:find("electrocuted yourself") then useTool("Defibrillator") return true
+    elseif dialog:find("somehow cut the patient") then useTool("Splint") return true
+    elseif dialog:find("jabbed the pin through") then useTool("Pins") return true
+    elseif dialog:find("clamp fell out") then useTool("Clamp") return true
+    elseif dialog:find("screwed it up! Try again") then useTool("Fix it") return true
+    end
+
+    -- ====================================================================
+    -- KONDISI DARURAT NYAWA EKSTRIM (Prioritas Utama)
+    -- ====================================================================
+    if dialog:find("Heart stopped!") and dialog:find("tool4312") then
+        useTool("Defibrillator")
+        return true
+    elseif (dialog:find("patient wakes up!") or dialog:find("screams and flails!")) and dialog:find("tool1262") then
+        useTool("Anesthetic")
+        return true
+    end
+
+    -- ====================================================================
+    -- EKSTRAKSI DATA MENTAH DARI DIALOG
+    -- ====================================================================
+    local incisionsCount = tonumber(dialog:match("Incisions:%s*`?.?(%d+)")) or 0
+    local isPulseWeak    = dialog:lower():find("pulse:%s*`?.?weak")
+    local isPulseSteady  = dialog:lower():find("pulse:%s*`?.?steady")
+    local isPulseStrong  = dialog:lower():find("pulse:%s*`?.?strong")
+    local isUnconscious  = dialog:lower():find("status:%s*`?.?unconscious")
+    
+    -- Ekstraksi nilai suhu (Temp: 98.6 atau Temp: 102.4 dll)
+    local currentTemp = tonumber(dialog:match("Temp:%s*`?.?(%d+%.?%d*)")) or 98.6
+
+    -- ====================================================================
+    -- LOGIKA PENDARAHAN UTAMA (Internal Bleeding)
+    -- ====================================================================
+    if dialog:find("losing blood") then
+        if incisionsCount == 0 then
+            if dialog:find("tool4310") and isPulseWeak then
+                useTool("Transfusion")
+                return true
+            elseif dialog:find("You can't see") and dialog:find("tool1258") then
+                useTool("Sponge")
+                return true
+            elseif dialog:find("tool1262") and (isPulseSteady or isPulseStrong) and not isUnconscious then
+                useTool("Anesthetic")
+                return true
+            elseif dialog:find("tool1260") and isUnconscious then
+                useTool("Scalpel")
+                return true
+            end
+        elseif incisionsCount >= 1 then
+            if dialog:find("You can't see") and dialog:find("tool1258") then
+                useTool("Sponge")
+                return true
+            elseif dialog:find("slowly") and dialog:find("tool4314") then
+                useTool("Clamp")
+                return true
+            elseif dialog:find("tool1270") then
+                useTool("Stitches")
+                return true
+            end
+        end
+    end
+
+    -- ====================================================================
+    -- KONDISI SUHU / DEMAM & INFEKSI (DENGAN PROTEKSI UKURAN SUHU)
+    -- ====================================================================
+    if dialog:find("climbing rapidly") or dialog:find("Temp:") then
+        -- HANYA pakai Antibiotic jika suhu sudah menyentuh atau melewati 100°F
+        if currentTemp >= 100.0 and dialog:find("tool1266") then 
+            useTool("Antibiotic") 
+            return true
+        elseif dialog:find("tool4318") then 
+            useTool("Lab kit") 
+            return true
+        end
+    end
+
+    -- Diagnosa Awal
+    if not dialog:find("losing blood") and not dialog:find("climbing") then
+        if dialog:find("has not been diagnosed.") and dialog:find("tool4316") then
+            useTool("Ultrasound")
+            return true
+        end
+    end
+
+    -- Kesadaran Pasien
+    if (dialog:find("Awake") or dialog:find("Coming to")) and dialog:find("tool1262") then
+        useTool("Anesthetic")
+        return true
+    end
+
+    -- Pandangan Terhalang
+    if dialog:find("You can't see") and dialog:find("tool1258") then
+        useTool("Sponge")
+        return true
+    end
+
+    -- Tulang Retak atau Hancur
+    if dialog:find("Bones:") then
+        if dialog:find("shattered") then
+            if dialog:find("tool4308") then useTool("Pins") return true
+            elseif dialog:find("tool1260") then useTool("Scalpel") return true
+            end
+        elseif dialog:find("broken") and dialog:find("tool1268") then
+            useTool("Splint")
+            return true
+        end
+    end
+
+    -- Kasus Khusus Patah Kaki/Tangan
+    if dialog:find("broke his leg.") or dialog:find("broke his arm.") then
+        if dialog:find("tool1262") then useTool("Anesthetic") return true
+        elseif dialog:find("tool1260") then useTool("Scalpel") return true
+        elseif dialog:find("tool1268") then useTool("Splint") return true
+        elseif dialog:find("tool1270") then useTool("Stitches") return true
+        end
+    end
+
+    -- Penutupan Bedah
+    if incisionsCount == 0 and dialog:find("tool1296") then
+        useTool("Fix it")
+        return true
+    elseif dialog:find("tool1296") and dialog:find("tool1270") then
+        useTool("Stitches")
+        return true
+    end
+
+    -- Fallback
+    if dialog:find("tool1260") then
+        useTool("Scalpel")
+        return true
+    end
+
+    return false
+end
+
+AddHook(surg, "OnVariant")
