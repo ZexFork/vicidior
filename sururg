@@ -95,9 +95,6 @@ function surg(var)
             if dialog:find("tool4310") and isPulseWeak then
                 useTool("Transfusion")
                 return true
-            elseif dialog:find("You can't see") and dialog:find("tool1258") then
-                useTool("Sponge")
-                return true
             elseif dialog:find("tool1262") and (isPulseSteady or isPulseStrong) and not isUnconscious then
                 useTool("Anesthetic")
                 return true
