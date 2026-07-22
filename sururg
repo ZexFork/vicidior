@@ -1,4 +1,19 @@
---Auto Surg V1.2 (Strict Temp Check & Fully Automated by GT Lua)
+-- ====================================================================
+-- AUTO SURGERY V3.0
+-- Developer: GT Lua (GrowLauncher IniEy Native UI)
+-- ====================================================================
+
+local pref = require("preferences")
+local saved = pref:new("autosurg_config.json")
+
+-- ====================================================================
+-- STATE & CONFIGURATION
+-- ====================================================================
+local surg_enabled   = saved:get("surg_enabled", true)
+local surg_min_delay = saved:get("surg_min_delay", 250)
+local surg_max_delay = saved:get("surg_max_delay", 500)
+
+local lastActionTime = 0
 
 local toolIds = {
     ["Sponge"]       = 1258,
@@ -16,40 +31,113 @@ local toolIds = {
     ["Fix it"]       = 1296
 }
 
+local function SaveData()
+    saved:set("surg_enabled", surg_enabled)
+    saved:set("surg_min_delay", surg_min_delay)
+    saved:set("surg_max_delay", surg_max_delay)
+    saved:save()
+end
+
+-- --------------------------------------------------------------------
+-- 1. DIALOG INITIALIZATION & CHANGE LOGS
+-- --------------------------------------------------------------------
 sendDialog({
-    title = "Script Autosurg V1.2",
-    message = "     [ SYSTEM STATUS: ACTIVE ]\n\nChange Logs:\n- Anti-Antibiotic under 100 active.\n- Strict step tracker.",
+    title = "Script Autosurg V1.9",
+    message = "     [ SYSTEM STATUS: ACTIVE ]\n\nChange Logs:\n- Anti-Antibiotic under 100°F active.\n- Enhanced bleeding condition handler.\n- Fast Broken Arm logic.\n- Strict Broken Leg sequence.\n- Native Growlauncher UserInterface & OnValue Handler.",
     confirm = "START AUTO SURG",
     alias = "OK"
 })
 
-growtopia.notify("AUTO SURG V1.2 ACTIVE")
+-- --------------------------------------------------------------------
+-- 2. UI FRAMEWORK (IniEy API)
+-- --------------------------------------------------------------------
+local ui = UserInterface.new("AutoSurgery", "Dashboard")
+ui:addLabelApp("AutoSurgery by rizzterine", "Verified")
 
-function smartDelay()
-    local ms = math.random(250, 500)
-    Sleep(ms)
+ui:addDivider()
+
+ui:addToggle("Enable Auto Surg", surg_enabled, "toggle_surg", true)
+ui:addInputInt("Min Delay (ms)", tostring(surg_min_delay), "Config", "Min Delay", "Verified", "input_min_delay")
+ui:addInputInt("Max Delay (ms)", tostring(surg_max_delay), "Config", "Max Delay", "Verified", "input_max_delay")
+
+-- --------------------------------------------------------------------
+-- 3. EVENT HANDLER (Menangkap Perubahan Nilai dari UI)
+-- --------------------------------------------------------------------
+function OnValue(type, name, value)
+    if name == "toggle_surg" then
+        surg_enabled = value
+        SaveData()
+        LogToConsole("[`3AutoSurg`w] Auto Surg: " .. (surg_enabled and "`2ON" or "`4OFF"))
+    elseif name == "input_min_delay" then
+        local num = tonumber(value)
+        if num then
+            surg_min_delay = num
+            SaveData()
+        end
+    elseif name == "input_max_delay" then
+        local num = tonumber(value)
+        if num then
+            surg_max_delay = num
+            SaveData()
+        end
+    end
+end
+
+-- --------------------------------------------------------------------
+-- 4. FUNGSI LOGIKA DELAY & TOOL EXECUTION
+-- --------------------------------------------------------------------
+function getMs()
+    if GetTickCount then
+        return GetTickCount()
+    else
+        return math.floor(os.clock() * 1000)
+    end
 end
 
 function useTool(toolName)
     local itool = toolIds[toolName]
-    if itool then
-        smartDelay()
-        SendPacket(2, "action|dialog_return\ndialog_name|surgery\nbuttonClicked|tool" .. itool)
-        LogToConsole("[`3Used-Tools`w] `2" .. toolName)
+    if not itool then return end
+
+    local minD = surg_min_delay or 250
+    local maxD = surg_max_delay or 500
+    if minD > maxD then minD = maxD end
+
+    local randomDelay = math.random(minD, maxD)
+    local currentTime = getMs()
+
+    if currentTime - lastActionTime < randomDelay then
+        local waitTime = randomDelay - (currentTime - lastActionTime)
+        Sleep(waitTime)
     end
+
+    lastActionTime = getMs()
+    SendPacket(2, "action|dialog_return\ndialog_name|surgery\nbuttonClicked|tool" .. itool)
+    LogToConsole("[`3Used-Tools`w] `2" .. toolName .. " `w(Delay: " .. randomDelay .. "ms)")
 end
 
+-- --------------------------------------------------------------------
+-- 5. MAIN SURGERY LOGIC
+-- --------------------------------------------------------------------
 function surg(var)
-    -- Memastikan packet adalah Dialog Surgery
-    if var.v1 ~= "OnDialogRequest" or not var.v2:find("end_dialog|surgery") then
+    if not surg_enabled then 
+        return false 
+    end
+
+    local v1 = var[0] or var.v1
+    local v2 = var[1] or var.v2
+
+    if not v1 or not v2 then return false end
+    if type(v1) == "string" and v1 == "OnDialogRequest" then
+        if not (v2:find("dialog_name|surgery") or v2:find("end_dialog|surgery")) then
+            return false
+        end
+    else
         return false
     end
 
-    local dialog = var.v2
+    local dialog = tostring(v2)
 
-    -- ====================================================================
-    -- DETEKSI SKILL FAIL (Mengulang Alat yang Sama)
-    -- ====================================================================
+    -- SKILL FAIL RECOVERY
     if dialog:find("wrong medication") then useTool("Antibiotic") return true
     elseif dialog:find("contaminated the sample") then useTool("Lab kit") return true
     elseif dialog:find("spilled blood everywhere") then useTool("Transfusion") return true
@@ -64,9 +152,7 @@ function surg(var)
     elseif dialog:find("screwed it up! Try again") then useTool("Fix it") return true
     end
 
-    -- ====================================================================
-    -- KONDISI DARURAT NYAWA EKSTRIM (Prioritas Utama)
-    -- ====================================================================
+    -- EMERGENCY
     if dialog:find("Heart stopped!") and dialog:find("tool4312") then
         useTool("Defibrillator")
         return true
@@ -75,22 +161,51 @@ function surg(var)
         return true
     end
 
-    -- ====================================================================
-    -- EKSTRAKSI DATA MENTAH DARI DIALOG
-    -- ====================================================================
+    -- EXTRACTION
     local incisionsCount = tonumber(dialog:match("Incisions:%s*`?.?(%d+)")) or 0
     local isPulseWeak    = dialog:lower():find("pulse:%s*`?.?weak")
     local isPulseSteady  = dialog:lower():find("pulse:%s*`?.?steady")
     local isPulseStrong  = dialog:lower():find("pulse:%s*`?.?strong")
     local isUnconscious  = dialog:lower():find("status:%s*`?.?unconscious")
-    
-    -- Ekstraksi nilai suhu (Temp: 98.6 atau Temp: 102.4 dll)
-    local currentTemp = tonumber(dialog:match("Temp:%s*`?.?(%d+%.?%d*)")) or 98.6
+    local currentTemp    = tonumber(dialog:match("Temp:%s*`?.?(%d+%.?%d*)")) or 98.6
 
-    -- ====================================================================
-    -- LOGIKA PENDARAHAN UTAMA (Internal Bleeding)
-    -- ====================================================================
-    if dialog:find("losing blood") then
+    -- BLINDNESS
+    if dialog:find("You can't see") and dialog:find("tool1258") then
+        useTool("Sponge")
+        return true
+    end
+
+    -- BROKEN ARM
+    if dialog:find("broke his arm") then
+        if dialog:find("tool1270") then
+            useTool("Stitches")
+            return true
+        end
+    end
+
+    -- BROKEN LEG / SHATTERED BONES
+    if dialog:find("broke his leg") or dialog:find("Bones:") then
+        if not isUnconscious and dialog:find("tool1262") then
+            useTool("Anesthetic")
+            return true
+        elseif isUnconscious and incisionsCount == 0 and dialog:find("tool1260") then
+            useTool("Scalpel")
+            return true
+        elseif incisionsCount >= 1 and dialog:find("shattered") and dialog:find("tool4308") then
+            useTool("Pins")
+            return true
+        elseif incisionsCount >= 1 and not dialog:find("shattered") and dialog:find("tool1270") then
+            useTool("Stitches")
+            return true
+        end
+    end
+
+    -- LOSING BLOOD & LOSING BLOOD VERY QUICKLY
+    if dialog:find("losing blood") or dialog:find("losing blood very quickly") then
+        if dialog:find("slowly") and and dialog:find("tool4314") then 
+        useTool("Clamp")
+        return true
+        end
         if incisionsCount == 0 then
             if dialog:find("tool4310") and isPulseWeak then
                 useTool("Transfusion")
@@ -103,10 +218,7 @@ function surg(var)
                 return true
             end
         elseif incisionsCount >= 1 then
-            if dialog:find("You can't see") and dialog:find("tool1258") then
-                useTool("Sponge")
-                return true
-            elseif dialog:find("slowly") and dialog:find("tool4314") then
+            if (dialog:find("slowly") or dialog:find("very quickly")) and dialog:find("tool4314") then
                 useTool("Clamp")
                 return true
             elseif dialog:find("tool1270") then
@@ -116,11 +228,8 @@ function surg(var)
         end
     end
 
-    -- ====================================================================
-    -- KONDISI SUHU / DEMAM & INFEKSI (DENGAN PROTEKSI UKURAN SUHU)
-    -- ====================================================================
+    -- TEMP CHECK (PROTEKSI < 100°F)
     if dialog:find("climbing rapidly") or dialog:find("Temp:") then
-        -- HANYA pakai Antibiotic jika suhu sudah menyentuh atau melewati 100°F
         if currentTemp >= 100.0 and dialog:find("tool1266") then 
             useTool("Antibiotic") 
             return true
@@ -130,48 +239,27 @@ function surg(var)
         end
     end
 
-    -- Diagnosa Awal
-    if not dialog:find("losing blood") and not dialog:find("climbing") then
+    -- DIAGNOSIS
+    if not dialog:find("very quickly") and not dialog:find("climbing") then
         if dialog:find("has not been diagnosed.") and dialog:find("tool4316") then
             useTool("Ultrasound")
             return true
         end
     end
 
-    -- Kesadaran Pasien
+    -- AWARENESS
     if (dialog:find("Awake") or dialog:find("Coming to")) and dialog:find("tool1262") then
         useTool("Anesthetic")
         return true
     end
 
-    -- Pandangan Terhalang
-    if dialog:find("You can't see") and dialog:find("tool1258") then
-        useTool("Sponge")
+    -- SPLINT
+    if dialog:find("broken") and not dialog:find("shattered") and dialog:find("tool1268") then
+        useTool("Splint")
         return true
     end
 
-    -- Tulang Retak atau Hancur
-    if dialog:find("Bones:") then
-        if dialog:find("shattered") then
-            if dialog:find("tool4308") then useTool("Pins") return true
-            elseif dialog:find("tool1260") then useTool("Scalpel") return true
-            end
-        elseif dialog:find("broken") and dialog:find("tool1268") then
-            useTool("Splint")
-            return true
-        end
-    end
-
-    -- Kasus Khusus Patah Kaki/Tangan
-    if dialog:find("broke his leg.") or dialog:find("broke his arm.") then
-        if dialog:find("tool1262") then useTool("Anesthetic") return true
-        elseif dialog:find("tool1260") then useTool("Scalpel") return true
-        elseif dialog:find("tool1268") then useTool("Splint") return true
-        elseif dialog:find("tool1270") then useTool("Stitches") return true
-        end
-    end
-
-    -- Penutupan Bedah
+    -- FALLBACK CLOSING
     if incisionsCount == 0 and dialog:find("tool1296") then
         useTool("Fix it")
         return true
@@ -179,8 +267,7 @@ function surg(var)
         useTool("Stitches")
         return true
     end
-
-    -- Fallback
+    
     if dialog:find("tool1260") then
         useTool("Scalpel")
         return true
@@ -189,4 +276,17 @@ function surg(var)
     return false
 end
 
-AddHook(surg, "OnVariant")
+-- --------------------------------------------------------------------
+-- 6. INITIALIZATION & HOOK REGISTER
+-- --------------------------------------------------------------------
+function OnDraw(d)
+    removeHook("ondraw")
+    runCoroutine(function()
+        addCategory("AutoSurgery x Helper", "Home")
+        addIntoModule(ui:generateJSON(), "AutoSurgery x Helper")
+        growtopia.notify("`2AutoSurgery Dashboard Loaded!")
+    end)
+end
+
+addHook(surg, "onVariant")
+applyHook()
