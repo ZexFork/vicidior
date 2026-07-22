@@ -202,7 +202,7 @@ function surg(var)
 
     -- LOSING BLOOD & LOSING BLOOD VERY QUICKLY
     if dialog:find("losing blood") or dialog:find("losing blood very quickly") then
-        if dialog:find("slowly") and and dialog:find("tool4314") then 
+        if dialog:find("slowly") and dialog:find("tool4314") then 
         useTool("Clamp")
         return true
         end
