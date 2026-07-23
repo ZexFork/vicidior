@@ -136,8 +136,9 @@ function surg(var)
     end
 
     local dialog = tostring(v2)
-
-    -- SKILL FAIL RECOVERY
+-- ====================================================================
+    -- DETEKSI SKILL FAIL (Mengulang Alat yang Sama)
+    -- ====================================================================
     if dialog:find("wrong medication") then useTool("Antibiotic") return true
     elseif dialog:find("contaminated the sample") then useTool("Lab kit") return true
     elseif dialog:find("spilled blood everywhere") then useTool("Transfusion") return true
@@ -152,7 +153,9 @@ function surg(var)
     elseif dialog:find("screwed it up! Try again") then useTool("Fix it") return true
     end
 
-    -- EMERGENCY
+    -- ====================================================================
+    -- KONDISI DARURAT NYAWA EKSTRIM (Prioritas Utama)
+    -- ====================================================================
     if dialog:find("Heart stopped!") and dialog:find("tool4312") then
         useTool("Defibrillator")
         return true
@@ -161,51 +164,22 @@ function surg(var)
         return true
     end
 
-    -- EXTRACTION
+    -- ====================================================================
+    -- EKSTRAKSI DATA MENTAH DARI DIALOG
+    -- ====================================================================
     local incisionsCount = tonumber(dialog:match("Incisions:%s*`?.?(%d+)")) or 0
     local isPulseWeak    = dialog:lower():find("pulse:%s*`?.?weak")
     local isPulseSteady  = dialog:lower():find("pulse:%s*`?.?steady")
     local isPulseStrong  = dialog:lower():find("pulse:%s*`?.?strong")
     local isUnconscious  = dialog:lower():find("status:%s*`?.?unconscious")
-    local currentTemp    = tonumber(dialog:match("Temp:%s*`?.?(%d+%.?%d*)")) or 98.6
+    
+    -- Ekstraksi nilai suhu (Temp: 98.6 atau Temp: 102.4 dll)
+    local currentTemp = tonumber(dialog:match("Temp:%s*`?.?(%d+%.?%d*)")) or 98.6
 
-    -- BLINDNESS
-    if dialog:find("You can't see") and dialog:find("tool1258") then
-        useTool("Sponge")
-        return true
-    end
-
-    -- BROKEN ARM
-    if dialog:find("broke his arm") then
-        if dialog:find("tool1270") then
-            useTool("Stitches")
-            return true
-        end
-    end
-
-    -- BROKEN LEG / SHATTERED BONES
-    if dialog:find("broke his leg") or dialog:find("Bones:") then
-        if not isUnconscious and dialog:find("tool1262") then
-            useTool("Anesthetic")
-            return true
-        elseif isUnconscious and incisionsCount == 0 and dialog:find("tool1260") then
-            useTool("Scalpel")
-            return true
-        elseif incisionsCount >= 1 and dialog:find("shattered") and dialog:find("tool4308") then
-            useTool("Pins")
-            return true
-        elseif incisionsCount >= 1 and not dialog:find("shattered") and dialog:find("tool1270") then
-            useTool("Stitches")
-            return true
-        end
-    end
-
-    -- LOSING BLOOD & LOSING BLOOD VERY QUICKLY
-    if dialog:find("losing blood") or dialog:find("losing blood very quickly") then
-        if dialog:find("slowly") and dialog:find("tool4314") then 
-        useTool("Clamp")
-        return true
-        end
+    -- ====================================================================
+    -- LOGIKA PENDARAHAN UTAMA (Internal Bleeding)
+    -- ====================================================================
+    if dialog:find("losing blood") then
         if incisionsCount == 0 then
             if dialog:find("tool4310") and isPulseWeak then
                 useTool("Transfusion")
@@ -218,7 +192,10 @@ function surg(var)
                 return true
             end
         elseif incisionsCount >= 1 then
-            if (dialog:find("slowly") or dialog:find("very quickly")) and dialog:find("tool4314") then
+            if dialog:find("You can't see") and dialog:find("tool1258") then
+                useTool("Sponge")
+                return true
+            elseif dialog:find("slowly") and dialog:find("tool4314") then
                 useTool("Clamp")
                 return true
             elseif dialog:find("tool1270") then
@@ -228,8 +205,11 @@ function surg(var)
         end
     end
 
-    -- TEMP CHECK (PROTEKSI < 100°F)
+    -- ====================================================================
+    -- KONDISI SUHU / DEMAM & INFEKSI (DENGAN PROTEKSI UKURAN SUHU)
+    -- ====================================================================
     if dialog:find("climbing rapidly") or dialog:find("Temp:") then
+        -- HANYA pakai Antibiotic jika suhu sudah menyentuh atau melewati 100°F
         if currentTemp >= 100.0 and dialog:find("tool1266") then 
             useTool("Antibiotic") 
             return true
@@ -239,27 +219,45 @@ function surg(var)
         end
     end
 
-    -- DIAGNOSIS
-    if not dialog:find("very quickly") and not dialog:find("climbing") then
+    -- Diagnosa Awal
+    if not dialog:find("losing blood") and not dialog:find("climbing") then
         if dialog:find("has not been diagnosed.") and dialog:find("tool4316") then
             useTool("Ultrasound")
             return true
         end
     end
 
-    -- AWARENESS
+    -- Kesadaran Pasien
     if (dialog:find("Awake") or dialog:find("Coming to")) and dialog:find("tool1262") then
         useTool("Anesthetic")
         return true
     end
 
-    -- SPLINT
-    if dialog:find("broken") and not dialog:find("shattered") and dialog:find("tool1268") then
-        useTool("Splint")
+    -- Pandangan Terhalang
+    if dialog:find("You can't see") and dialog:find("tool1258") then
+        useTool("Sponge")
         return true
     end
 
-    -- FALLBACK CLOSING
+    -- Tulang Retak atau Hancur
+    if dialog:find("Bones:") then
+        if dialog:find("shattered") then
+            if dialog:find("tool4308") then useTool("Pins") return true
+            elseif dialog:find("tool1260") then useTool("Scalpel") return true
+            end
+        elseif dialog:find("broken") and dialog:find("tool1268") then
+            useTool("Splint")
+            return true
+        end
+    end
+
+    -- Kasus Khusus Patah Kaki/Tangan
+    if dialog:find("broke his leg.") or dialog:find("broke his arm.") then
+        if dialog:find("tool1270") then useTool("Stitches") return true
+        end
+    end
+
+    -- Penutupan Bedah
     if incisionsCount == 0 and dialog:find("tool1296") then
         useTool("Fix it")
         return true
@@ -267,7 +265,8 @@ function surg(var)
         useTool("Stitches")
         return true
     end
-    
+
+    -- Fallback
     if dialog:find("tool1260") then
         useTool("Scalpel")
         return true
