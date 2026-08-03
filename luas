@@ -1,4 +1,6 @@
--- Konfigurasi Posisi Awal (Base Coordinate)
+-- ===================================================
+-- KONFIGURASI KORDINAT UTAMA (BASE)
+-- ===================================================
 local BASE_X = 77
 local BASE_Y = 35
 
@@ -20,32 +22,42 @@ local validEmotes = {
 local mirror_emote = true
 local emoteCooldown = false
 
--- Thread Khusus Auto-Hit Multibot
+-- ===================================================
+-- THREAD MULTIBOT AUTO-HIT (DIBAGI 1 BOT = 1 TILE)
+-- ===================================================
 runThread(function()
     while true do
-        -- Melakukan iterasi ke seluruh bot yang aktif di Lucifer Executor
-        for _, bot in pairs(getBots()) do
-            if bot:isInWorld() then
-                -- Mendapatkan indeks bot (1, 2, 3, dst.)
-                local botIndex = (bot.index > 0) and bot.index or 1
+        -- Mengambil seluruh bot yang sedang aktif di executor
+        local bots = getBots()
+        
+        for i, b in ipairs(bots) do
+            if b ~= nil and b:isInWorld() then
+                -- Menentukan index bot (menggunakan b.index atau posisi iterasi loop)
+                local botIndex = (b.index and b.index > 0) and b.index or i
                 
-                -- Alokasi Tile: Bot 1 = (77,35), Bot 2 = (77,36), dst.
+                -- Kalkulasi Alokasi Tile Khusus:
+                -- Bot 1 -> X: 77, Y: 35 (35 + 0)
+                -- Bot 2 -> X: 77, Y: 36 (35 + 1)
+                -- Bot 3 -> X: 77, Y: 37 (35 + 2), dst.
                 local targetX = BASE_X
                 local targetY = BASE_Y + (botIndex - 1)
                 
-                -- Memukul 1 tile tepat di bawah kordinat alokasi bot (targetY + 1)
-                bot:hit(targetX, targetY + 1)
+                -- Memukul 1 tile persis di bawah tempat bot bertengger (targetY + 1)
+                b:hit(targetX, targetY + 1)
             end
         end
-        sleep(5000) -- Delay 5 detik tiap pukulan
+        
+        sleep(5000) -- Interval setiap 5 detik
     end
 end)
 
--- Callback Event Variant List (Emote Listener)
+-- ===================================================
+-- EVENT AUTO-EMOTE & TELEPORT KE TILE KHUSUS BOT
+-- ===================================================
 function onVariant(varlist, netid)
-    local bot = getBot() -- Mengambil context bot lokal
+    local bot = getBot()
     
-    if bot and mirror_emote and varlist:get(0):getString() == "OnAction" then
+    if bot ~= nil and mirror_emote and varlist:get(0):getString() == "OnAction" then
         local emote = varlist:get(1):getString()
         
         if validEmotes[emote] and not emoteCooldown then
@@ -53,19 +65,20 @@ function onVariant(varlist, netid)
             
             print("[" .. bot.name .. "] Emote detected: " .. emote)
             
-            -- Kirim Emote
+            -- 1. Bot mengirimkan emote via bot:say()
             bot:say(emote)
             
-            -- Pindah/Teleport ke Tile khusus bot berdasarkan index
+            -- 2. Memindahkan/teleport bot langsung ke tile jatahnya setelah emote
             if bot:isInWorld() then
-                local botIndex = (bot.index > 0) and bot.index or 1
+                local botIndex = (bot.index and bot.index > 0) and bot.index or 1
                 local myX = BASE_X
                 local myY = BASE_Y + (botIndex - 1)
                 
+                -- Berpindah langsung menggunakan bot:moveTile()
                 bot:moveTile(myX, myY)
             end
             
-            -- Cooldown 3 detik agar listener tidak terkena spam
+            -- Cooldown 3 detik agar listener tidak spam
             runThread(function()
                 sleep(3000)
                 emoteCooldown = false
@@ -74,8 +87,10 @@ function onVariant(varlist, netid)
     end
 end
 
--- Mendaftarkan listener
+-- ===================================================
+-- REGISTER EVENT & LISTEN
+-- ===================================================
 addEvent(Event.variantlist, onVariant)
 
--- Menjalankan event listener selama 24 jam (86400 detik)
+-- Menjaga event listener tetap aktif selama 24 jam (86400 detik)
 listenEvents(86400)
