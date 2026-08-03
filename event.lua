@@ -1,7 +1,7 @@
-local bot = getBot()[cite: 1]
+local bot = getBot()
 
 if bot == nil then
-    print("Script ini membutuhkan context bot.")[cite: 1]
+    print("Script ini membutuhkan context bot.")
     return
 end
 
@@ -23,29 +23,32 @@ local validEmotes = {
 local mirror_emote = true
 local emoteCooldown = false
 
--- Menambahkan Event listener variantlist
-addEvent(Event.variantlist, function(variant, net_id)[cite: 1]
-    -- Memeriksa apakah fitur mirror_emote aktif dan variant index 1 adalah "OnAction"
-    if mirror_emote and variant[1] == "OnAction" then
-        local emote = tostring(variant[2] or "")
+-- Callback penanganan variant list
+function onVariant(varlist, netid)
+    -- Membaca Variant Index 0 untuk mengecek aksi "OnAction"
+    if mirror_emote and varlist:get(0):getString() == "OnAction" then
+        -- Membaca Variant Index 1 untuk mendapatkan isi string emote
+        local emote = varlist:get(1):getString()
         
         if validEmotes[emote] and not emoteCooldown then
             emoteCooldown = true
             
             print("Emote detected: " .. emote)
             
-            -- Mengirim emote / chat menggunakan bot:say()
-            bot:say(emote)[cite: 1]
+            -- Mengirim emote ke server via bot:say()
+            bot:say(emote)
             
-            -- Menjalankan cooldown 3 detik menggunakan thread bawaan Lucifer
-            runThread(function()[cite: 1]
-                sleep(3000)[cite: 1]
+            -- Cooldown 3 detik di thread terpisah agar tidak memblokir listener
+            runThread(function()
+                sleep(3000)
                 emoteCooldown = false
             end)
         end
     end
-end)
+end
 
--- SOLUSI ERROR exit_mode:
--- Gunakan nilai timeout besar pada listenEvents tanpa dibungkus while loop & sleep manual.
-listenEvents(86400) -- Script akan mendengarkan event selama 24 jam berturut-turut
+-- Menambahkan event listener ke sistem Lucifer
+addEvent(Event.variantlist, onVariant)
+
+-- Menjalankan event listener selama 24 jam (86400 detik)
+listenEvents(86400)
