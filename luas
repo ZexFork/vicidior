@@ -1,5 +1,5 @@
 -- ===================================================
--- KONFIGURASI KORDINAT UTAMA (BASE)
+-- KONFIGURASI KOORDINAT UTAMA
 -- ===================================================
 local BASE_X = 77
 local BASE_Y = 35
@@ -23,39 +23,49 @@ local mirror_emote = true
 local emoteCooldown = false
 
 -- ===================================================
--- THREAD MULTIBOT AUTO-HIT (DIBAGI 1 BOT = 1 TILE)
+-- HELPER FUNCTION: AMBIL INDEX BOT SECARA AMAN (SAFE MATH)
+-- ===================================================
+local function getSafeBotIndex(botObj, fallbackIndex)
+    if botObj ~= nil and type(botObj.index) == "number" and botObj.index > 0 then
+        return botObj.index
+    end
+    return fallbackIndex or 1
+end
+
+-- ===================================================
+-- THREAD MULTIBOT AUTO-HIT
 -- ===================================================
 runThread(function()
     while true do
-        -- Mengambil seluruh bot yang sedang aktif di executor
-        local bots = getBots()
+        -- Mengambil tabel seluruh bot yang aktif
+        local allBots = getBots()
         
-        for i, b in ipairs(bots) do
+        for i, b in ipairs(allBots) do
             if b ~= nil and b:isInWorld() then
-                -- Menentukan index bot (menggunakan b.index atau posisi iterasi loop)
-                local botIndex = (b.index and b.index > 0) and b.index or i
+                -- Mendapatkan index bot dengan aman
+                local botIdx = getSafeBotIndex(b, i)
                 
-                -- Kalkulasi Alokasi Tile Khusus:
-                -- Bot 1 -> X: 77, Y: 35 (35 + 0)
-                -- Bot 2 -> X: 77, Y: 36 (35 + 1)
-                -- Bot 3 -> X: 77, Y: 37 (35 + 2), dst.
+                -- Dynamic Tile Assignment (1 Bot = 1 Tile):
+                -- Bot 1 -> Stand di (77, 35) | Hit (77, 36)
+                -- Bot 2 -> Stand di (77, 36) | Hit (77, 37)
+                -- Bot 3 -> Stand di (77, 37) | Hit (77, 38)
                 local targetX = BASE_X
-                local targetY = BASE_Y + (botIndex - 1)
+                local targetY = BASE_Y + (botIdx - 1)
                 
-                -- Memukul 1 tile persis di bawah tempat bot bertengger (targetY + 1)
+                -- Memukul 1 tile di bawah posisi berdiri bot (targetY + 1)
                 b:hit(targetX, targetY + 1)
             end
         end
         
-        sleep(5000) -- Interval setiap 5 detik
+        sleep(5000) -- Delay siklus hit setiap 5 detik
     end
 end)
 
 -- ===================================================
--- EVENT AUTO-EMOTE & TELEPORT KE TILE KHUSUS BOT
+-- CALLBACK EVENT AUTO-EMOTE & TELEPORT
 -- ===================================================
 function onVariant(varlist, netid)
-    local bot = getBot()
+    local bot = getBot() -- Bot lokal context
     
     if bot ~= nil and mirror_emote and varlist:get(0):getString() == "OnAction" then
         local emote = varlist:get(1):getString()
@@ -65,20 +75,19 @@ function onVariant(varlist, netid)
             
             print("[" .. bot.name .. "] Emote detected: " .. emote)
             
-            -- 1. Bot mengirimkan emote via bot:say()
+            -- 1. Bot mengirimkan emote balik via bot:say()
             bot:say(emote)
             
-            -- 2. Memindahkan/teleport bot langsung ke tile jatahnya setelah emote
+            -- 2. Langsung Teleport ke Tile Khusus milik bot ini
             if bot:isInWorld() then
-                local botIndex = (bot.index and bot.index > 0) and bot.index or 1
+                local botIdx = getSafeBotIndex(bot, 1)
                 local myX = BASE_X
-                local myY = BASE_Y + (botIndex - 1)
+                local myY = BASE_Y + (botIdx - 1)
                 
-                -- Berpindah langsung menggunakan bot:moveTile()
                 bot:moveTile(myX, myY)
             end
             
-            -- Cooldown 3 detik agar listener tidak spam
+            -- Cooldown listener 3 detik agar tidak spam
             runThread(function()
                 sleep(3000)
                 emoteCooldown = false
@@ -92,5 +101,5 @@ end
 -- ===================================================
 addEvent(Event.variantlist, onVariant)
 
--- Menjaga event listener tetap aktif selama 24 jam (86400 detik)
+-- Menjaga event listener aktif selama 24 jam (86400 detik)
 listenEvents(86400)
