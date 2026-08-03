@@ -1,74 +1,13 @@
-local BASE_X = 77
-local BASE_Y = 35
-
-local validEmotes = {
-    ["/no"] = true,
-    ["/yes"] = true,
-    ["/love"] = true,
-    ["/furious"] = true,
-    ["/idk"] = true,
-    ["/sleep"] = true,
-    ["/rolleyes"] = true,
-    ["/fp"] = true,
-    ["/wave"] = true,
-    ["/omg"] = true,
-    ["/dance"] = true,
-    ["/fold"] = true
-}
-
-local mirror_emote = true
-local emoteCooldown = false
-
-local function getBotIndex(botObj, loopIndex)
-    if botObj ~= nil and type(botObj.index) == "number" and botObj.index > 0 then
-        return botObj.index
-    end
-    return loopIndex or 1
-end
-
-runThread(function()
-    while true do
-        local bots = getBots()
-        
-        for i, b in ipairs(bots) do
-            if b ~= nil and b:isInWorld() then
-                local idx = getBotIndex(b, i)
-                local tileX = BASE_X + (getBot().index - 1
-                local tileY = BASE_Y
-                
-                b:hit(tileX, tileY + 5)
-            end
-        end
-        
-        sleep(100)
-    end
-end)
-
-function onVariant(varlist, netid)
+while true do
     local bot = getBot()
-    
-    if bot ~= nil and mirror_emote and varlist:get(0):getString() == "OnAction" then
-        local emote = varlist:get(1):getString()
-        
-        if validEmotes[emote] and not emoteCooldown then
-            emoteCooldown = true
-            
-            bot:say(emote)
-            
-            if bot:isInWorld() then
-                local targetX = BASE_X
-                local targetY = BASE_Y
-                getBot():findPath(BASE_X + (getBot().index - 1), BASE_Y)
+    if bot ~= nil and bot:isInWorld() then
+        local npcs = bot:getNPCs()
+        for _, npc in ipairs(npcs) do
+            if npc.type == 11 then
+                bot:hit(npc.id)
             end
-            
-            runThread(function()
-                sleep(3000)
-                emoteCooldown = false
-            end)
         end
     end
+    
+    sleep(100)
 end
-
-addEvent(Event.variantlist, onVariant)
-
-listenEvents(86400)
