@@ -1,13 +1,14 @@
-while true do
-    local bot = getBot()
-    if bot ~= nil and bot:isInWorld() then
-        local npcs = bot:getNPCs()
-        for _, npc in ipairs(npcs) do
-            if npc.type == 11 then
-                bot:hit(npc.id)
+runThread(function()
+    while true do
+        local bot = getBot()
+        if bot ~= nil and bot:isInWorld() then
+            local npcs = bot:getNPCs()
+            for _, npc in ipairs(npcs) do
+                if npc.type == 11 then
+                    bot:hit(npc.id) -- Memukul NPC langsung via ID
+                end
             end
         end
+        sleep(5000)
     end
-    
-    sleep(100)
-end
+end)
