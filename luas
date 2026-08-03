@@ -33,14 +33,14 @@ runThread(function()
         for i, b in ipairs(bots) do
             if b ~= nil and b:isInWorld() then
                 local idx = getBotIndex(b, i)
-                local tileX = BASE_X
-                local tileY = BASE_Y + (idx - 1)
+                local tileX = BASE_X + (getBot().index - 1
+                local tileY = BASE_Y
                 
-                b:hit(tileX, tileY + 1)
+                b:hit(tileX, tileY + 5)
             end
         end
         
-        sleep(5000)
+        sleep(100)
     end
 end)
 
@@ -57,7 +57,7 @@ function onVariant(varlist, netid)
             
             if bot:isInWorld() then
                 local targetX = BASE_X
-                local targetY = BASE_Y + (idx - 1)
+                local targetY = BASE_Y
                 getBot():findPath(BASE_X + (getBot().index - 1), BASE_Y)
             end
             
