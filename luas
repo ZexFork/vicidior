@@ -56,11 +56,9 @@ function onVariant(varlist, netid)
             bot:say(emote)
             
             if bot:isInWorld() then
-                local idx = getBotIndex(bot, 1)
                 local targetX = BASE_X
                 local targetY = BASE_Y + (idx - 1)
-                
-                bot:moveTile(targetX, targetY)
+                getBot():findPath(BASE_X + (getBot().index - 1), BASE_Y)
             end
             
             runThread(function()
