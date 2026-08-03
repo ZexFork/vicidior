@@ -1,7 +1,81 @@
+-- Konfigurasi Posisi Awal (Base Coordinate)
+local BASE_X = 77
+local BASE_Y = 35
 
-while true do
-  if getBot():isInWorld() then
-    getBot():hit(getBot().x, getBot().y + 1)
-  end
-  sleep(5000)
+local validEmotes = {
+    ["/no"] = true,
+    ["/yes"] = true,
+    ["/love"] = true,
+    ["/furious"] = true,
+    ["/idk"] = true,
+    ["/sleep"] = true,
+    ["/rolleyes"] = true,
+    ["/fp"] = true,
+    ["/wave"] = true,
+    ["/omg"] = true,
+    ["/dance"] = true,
+    ["/fold"] = true
+}
+
+local mirror_emote = true
+local emoteCooldown = false
+
+-- Thread Khusus Auto-Hit Multibot
+runThread(function()
+    while true do
+        -- Melakukan iterasi ke seluruh bot yang aktif di Lucifer Executor
+        for _, bot in pairs(getBots()) do
+            if bot:isInWorld() then
+                -- Mendapatkan indeks bot (1, 2, 3, dst.)
+                local botIndex = (bot.index > 0) and bot.index or 1
+                
+                -- Alokasi Tile: Bot 1 = (77,35), Bot 2 = (77,36), dst.
+                local targetX = BASE_X
+                local targetY = BASE_Y + (botIndex - 1)
+                
+                -- Memukul 1 tile tepat di bawah kordinat alokasi bot (targetY + 1)
+                bot:hit(targetX, targetY + 1)
+            end
+        end
+        sleep(5000) -- Delay 5 detik tiap pukulan
+    end
+end)
+
+-- Callback Event Variant List (Emote Listener)
+function onVariant(varlist, netid)
+    local bot = getBot() -- Mengambil context bot lokal
+    
+    if bot and mirror_emote and varlist:get(0):getString() == "OnAction" then
+        local emote = varlist:get(1):getString()
+        
+        if validEmotes[emote] and not emoteCooldown then
+            emoteCooldown = true
+            
+            print("[" .. bot.name .. "] Emote detected: " .. emote)
+            
+            -- Kirim Emote
+            bot:say(emote)
+            
+            -- Pindah/Teleport ke Tile khusus bot berdasarkan index
+            if bot:isInWorld() then
+                local botIndex = (bot.index > 0) and bot.index or 1
+                local myX = BASE_X
+                local myY = BASE_Y + (botIndex - 1)
+                
+                bot:moveTile(myX, myY)
+            end
+            
+            -- Cooldown 3 detik agar listener tidak terkena spam
+            runThread(function()
+                sleep(3000)
+                emoteCooldown = false
+            end)
+        end
+    end
 end
+
+-- Mendaftarkan listener
+addEvent(Event.variantlist, onVariant)
+
+-- Menjalankan event listener selama 24 jam (86400 detik)
+listenEvents(86400)
