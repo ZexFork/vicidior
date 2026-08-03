@@ -1,51 +1,7 @@
-local bot = getBot()
 
--- Validasi koneksi dan keberadaan bot dalam world
-if bot == nil or not bot:isInWorld() then
-    print("Bot tidak ditemukan atau belum masuk ke dalam world.")
-    return
+while true do
+  if getBot():isInWorld() then
+    getBot():hit(getBot().x, getBot().y + 1)
+  end
+  sleep(5000)
 end
-
--- 1. Ambil koordinat awal bot
-local startX = bot.x
-local startY = bot.y
-print("Posisi Awal Bot: " .. startX .. ", " .. startY)
-
--- 2. Pindah ke baris X + 1
-local targetX = startX + 1
-local targetY = startY
-
-print("Bergerak ke baris X + 1 (" .. targetX .. ", " .. targetY .. ")...")
-bot:findPath(targetX, targetY)
-sleep(500) -- Jeda sebentar setelah berpindah
-
--- 3. Memukul (punch) 1 block di bawah bot saat ini (Y + 1)
-local punchX = bot.x
-local punchY = bot.y + 1
-
-print("Punch 1 block di bawah: " .. punchX .. ", " .. punchY)
-bot:hit(punchX, punchY)
-
--- 4. Menjalankan task berkala setiap 1 menit (Thread Asynchronous)
-runThread(function()
-    while true do
-        -- Jeda 1 menit (60.000 milidetik)
-        sleep(60000)
-        
-        -- Menggunakan / memencet Item ID 3772 sebanyak 4 kali (4 titik)
-        print("Memencet Item ID 3772 (4x titik)...")
-        for i = 1, 4 do
-            bot:use(3772)
-            sleep(250) -- Jeda antar pencetan item
-        end
-        
-        sleep(250)
-        
-        -- Memencet 1x ke koordinat Y - 1 (1 unit di bawah bot)
-        local actX = bot.x
-        local actY = bot.y - 1
-        
-        print("Memencet 1x ke koordinat Y-1 (" .. actX .. ", " .. actY .. ")...")
-        bot:active(actX, actY)
-    end
-end)
