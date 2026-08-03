@@ -1,6 +1,3 @@
--- ===================================================
--- KONFIGURASI KOORDINAT UTAMA
--- ===================================================
 local BASE_X = 77
 local BASE_Y = 35
 
@@ -22,50 +19,33 @@ local validEmotes = {
 local mirror_emote = true
 local emoteCooldown = false
 
--- ===================================================
--- HELPER FUNCTION: AMBIL INDEX BOT SECARA AMAN (SAFE MATH)
--- ===================================================
-local function getSafeBotIndex(botObj, fallbackIndex)
+local function getBotIndex(botObj, loopIndex)
     if botObj ~= nil and type(botObj.index) == "number" and botObj.index > 0 then
         return botObj.index
     end
-    return fallbackIndex or 1
+    return loopIndex or 1
 end
 
--- ===================================================
--- THREAD MULTIBOT AUTO-HIT
--- ===================================================
 runThread(function()
     while true do
-        -- Mengambil tabel seluruh bot yang aktif
-        local allBots = getBots()
+        local bots = getBots()
         
-        for i, b in ipairs(allBots) do
+        for i, b in ipairs(bots) do
             if b ~= nil and b:isInWorld() then
-                -- Mendapatkan index bot dengan aman
-                local botIdx = getSafeBotIndex(b, i)
+                local idx = getBotIndex(b, i)
+                local tileX = BASE_X
+                local tileY = BASE_Y + (idx - 1)
                 
-                -- Dynamic Tile Assignment (1 Bot = 1 Tile):
-                -- Bot 1 -> Stand di (77, 35) | Hit (77, 36)
-                -- Bot 2 -> Stand di (77, 36) | Hit (77, 37)
-                -- Bot 3 -> Stand di (77, 37) | Hit (77, 38)
-                local targetX = BASE_X
-                local targetY = BASE_Y + (botIdx - 1)
-                
-                -- Memukul 1 tile di bawah posisi berdiri bot (targetY + 1)
-                b:hit(targetX, targetY + 1)
+                b:hit(tileX, tileY + 1)
             end
         end
         
-        sleep(5000) -- Delay siklus hit setiap 5 detik
+        sleep(5000)
     end
 end)
 
--- ===================================================
--- CALLBACK EVENT AUTO-EMOTE & TELEPORT
--- ===================================================
 function onVariant(varlist, netid)
-    local bot = getBot() -- Bot lokal context
+    local bot = getBot()
     
     if bot ~= nil and mirror_emote and varlist:get(0):getString() == "OnAction" then
         local emote = varlist:get(1):getString()
@@ -73,21 +53,16 @@ function onVariant(varlist, netid)
         if validEmotes[emote] and not emoteCooldown then
             emoteCooldown = true
             
-            print("[" .. bot.name .. "] Emote detected: " .. emote)
-            
-            -- 1. Bot mengirimkan emote balik via bot:say()
             bot:say(emote)
             
-            -- 2. Langsung Teleport ke Tile Khusus milik bot ini
             if bot:isInWorld() then
-                local botIdx = getSafeBotIndex(bot, 1)
-                local myX = BASE_X
-                local myY = BASE_Y + (botIdx - 1)
+                local idx = getBotIndex(bot, 1)
+                local targetX = BASE_X
+                local targetY = BASE_Y + (idx - 1)
                 
-                bot:moveTile(myX, myY)
+                bot:moveTile(targetX, targetY)
             end
             
-            -- Cooldown listener 3 detik agar tidak spam
             runThread(function()
                 sleep(3000)
                 emoteCooldown = false
@@ -96,10 +71,6 @@ function onVariant(varlist, netid)
     end
 end
 
--- ===================================================
--- REGISTER EVENT & LISTEN
--- ===================================================
 addEvent(Event.variantlist, onVariant)
 
--- Menjaga event listener aktif selama 24 jam (86400 detik)
 listenEvents(86400)
