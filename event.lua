@@ -1,7 +1,7 @@
-local bot = getBot()
+local bot = getBot()[cite: 1]
 
 if bot == nil then
-    print("Script ini membutuhkan context bot.")
+    print("Script ini membutuhkan context bot.")[cite: 1]
     return
 end
 
@@ -23,9 +23,9 @@ local validEmotes = {
 local mirror_emote = true
 local emoteCooldown = false
 
--- Menggunakan Event System bawaan Lucifer API v2.86
-addEvent(Event.variantlist, function(variant, net_id)
-    -- Memeriksa apakah fitur mirror emote aktif dan variant index 1 adalah "OnAction"
+-- Menambahkan Event listener variantlist
+addEvent(Event.variantlist, function(variant, net_id)[cite: 1]
+    -- Memeriksa apakah fitur mirror_emote aktif dan variant index 1 adalah "OnAction"
     if mirror_emote and variant[1] == "OnAction" then
         local emote = tostring(variant[2] or "")
         
@@ -34,20 +34,18 @@ addEvent(Event.variantlist, function(variant, net_id)
             
             print("Emote detected: " .. emote)
             
-            -- Mengirim paket pesan/emote ke server
-            bot:say(emote)
+            -- Mengirim emote / chat menggunakan bot:say()
+            bot:say(emote)[cite: 1]
             
-            -- Menggunakan runThread dan sleep bawaan Lucifer untuk penanganan cooldown secara asynchronous
-            runThread(function()
-                sleep(3000)
+            -- Menjalankan cooldown 3 detik menggunakan thread bawaan Lucifer
+            runThread(function()[cite: 1]
+                sleep(3000)[cite: 1]
                 emoteCooldown = false
             end)
         end
     end
 end)
 
--- Mendengarkan event secara terus-menerus
-while true do
-    listenEvents(1)
-    sleep(10)
-end
+-- SOLUSI ERROR exit_mode:
+-- Gunakan nilai timeout besar pada listenEvents tanpa dibungkus while loop & sleep manual.
+listenEvents(86400) -- Script akan mendengarkan event selama 24 jam berturut-turut
